@@ -118,7 +118,6 @@ public class App implements JavaSamplerClient {
                     // 找到元素，點擊進入會議室
                     element.click();
                     toClickTime = System.currentTimeMillis();
-
                     break;
                 } else {
                     // 檢查網址有沒有跑掉進不去會議室
@@ -131,7 +130,7 @@ public class App implements JavaSamplerClient {
                     if (ending == "ending") {
                         toEndTime = System.currentTimeMillis();
                         combinedResponse.put("status", 500);
-                        combinedResponse.put("msg", "進入失敗畫面跳轉ending");
+                        combinedResponse.put("msg", "點選join-button進入失敗畫面跳轉ending");
                         combinedResponse.put("startTime", formatTime(toStartTime));
                         combinedResponse.put("clickTime", formatTime(toClickTime));
                         combinedResponse.put("endTime", formatTime(toEndTime));
@@ -154,7 +153,7 @@ public class App implements JavaSamplerClient {
 
                     toEndTime = System.currentTimeMillis();
                     combinedResponse.put("status", 500);
-                    combinedResponse.put("msg", "出了其他錯誤請看log");
+                    combinedResponse.put("msg", "尋找join-button時出了其他錯誤請看log");
                     combinedResponse.put("startTime", formatTime(toStartTime));
                     combinedResponse.put("clickTime", formatTime(toClickTime));
                     combinedResponse.put("endTime", formatTime(toEndTime));
@@ -173,7 +172,7 @@ public class App implements JavaSamplerClient {
 
                 toEndTime = System.currentTimeMillis();
                 combinedResponse.put("status", 500);
-                combinedResponse.put("msg", "尋找button超時且url也未跳轉至ending");
+                combinedResponse.put("msg", "尋找join-button超時且url也未跳轉至ending");
                 combinedResponse.put("startTime", formatTime(toStartTime));
                 combinedResponse.put("clickTime", formatTime(toClickTime));
                 combinedResponse.put("endTime", formatTime(toEndTime));
@@ -186,7 +185,82 @@ public class App implements JavaSamplerClient {
                 return result;
             }
 
-            toEndTime = System.currentTimeMillis();
+            /**
+             * **************************************************
+             * 確認已進入視訊室去抓按鈕
+             * **************************************************
+             */
+
+             while (System.currentTimeMillis() - startTime < maxWaitTime) {
+                ElementHandle element = page.waitForSelector("#leave-btn", options);
+                if (element != null) {
+                    toEndTime = System.currentTimeMillis();
+                    break;
+                } else {
+                    // 檢查網址有沒有跑掉進不去會議室
+                    Target target = page.target();
+                    String url = target.url();
+                    String[] pathSegments = url.split("/");
+                    String ending = pathSegments[pathSegments.length - 1];
+
+                    // 如果直接跳到ending沒進入會議室
+                    if (ending == "ending") {
+                        toEndTime = System.currentTimeMillis();
+                        combinedResponse.put("status", 500);
+                        combinedResponse.put("msg", "找尋leave-button失敗且畫面跳轉ending");
+                        combinedResponse.put("startTime", formatTime(toStartTime));
+                        combinedResponse.put("clickTime", formatTime(toClickTime));
+                        combinedResponse.put("endTime", formatTime(toEndTime));
+
+                        String json = objectMapper.writeValueAsString(combinedResponse);
+
+                        result.setResponseCode("500"); // 設置錯誤的回應碼
+                        result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
+                        result.setResponseData(json, "UTF-8"); // 設置回應內容
+                        return result;
+                    }
+
+                }
+
+                try {
+                    Thread.sleep(interval);
+                } catch (InterruptedException e) {
+                    // 中斷異常
+                    e.printStackTrace();
+
+                    toEndTime = System.currentTimeMillis();
+                    combinedResponse.put("status", 500);
+                    combinedResponse.put("msg", "尋找leave-btn時出了其他錯誤請看log");
+                    combinedResponse.put("startTime", formatTime(toStartTime));
+                    combinedResponse.put("clickTime", formatTime(toClickTime));
+                    combinedResponse.put("endTime", formatTime(toEndTime));
+
+                    String json = objectMapper.writeValueAsString(combinedResponse);
+
+                    result.setResponseCode("500"); // 設置錯誤的回應碼
+                    result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
+                    result.setResponseData(json, "UTF-8"); // 設置回應內容
+                    return result;
+
+                }
+            }
+
+            if (System.currentTimeMillis() - startTime >= maxWaitTime) {
+
+                toEndTime = System.currentTimeMillis();
+                combinedResponse.put("status", 500);
+                combinedResponse.put("msg", "尋找leave-btn超時且url也未跳轉至ending");
+                combinedResponse.put("startTime", formatTime(toStartTime));
+                combinedResponse.put("clickTime", formatTime(toClickTime));
+                combinedResponse.put("endTime", formatTime(toEndTime));
+
+                String json = objectMapper.writeValueAsString(combinedResponse);
+
+                result.setResponseCode("500"); // 設置錯誤的回應碼
+                result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
+                result.setResponseData(json, "UTF-8"); // 設置回應內容
+                return result;
+            }
 
             /**
              * ****************************************
