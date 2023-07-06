@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Date;
 
@@ -75,16 +75,18 @@ public class App implements JavaSamplerClient {
         SampleResult result = new SampleResult();
         // 設置回應response最後結合成一個json
         ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> combinedResponse = new LinkedHashMap<>();
         // 先把變數製造出來再塞值進去
         long toStartTime = 0L; // 打開瀏覽器時間初始化為 0
         long toClickTime = 0L; // 點擊按鈕初始化為 0
+        long toEndTime = 0L; // 點擊按鈕初始化為 0
 
         try {
             BrowserContext context = browser.createIncognitoBrowserContext();
             Page page = context.newPage();
             page.goTo(javaSamplerContext.getParameter("meetingUrl"));
 
-            //跳轉網址開始計算時間
+            // 跳轉網址開始計算時間
             toStartTime = System.currentTimeMillis();
 
             /**
@@ -93,9 +95,9 @@ public class App implements JavaSamplerClient {
              * ***********************************
              */
             JSHandle isPageLoaded = page.waitForFunction("document.readyState === 'complete'");
-            //boolean isPageOk = isPageLoaded.jsonValue().equals(true);
+            // boolean isPageOk = isPageLoaded.jsonValue().equals(true);
 
-            System.out.println("isPageLoaded"+isPageLoaded);
+            System.out.println("isPageLoaded" + isPageLoaded);
             System.out.println("畫面渲染完");
             // 新增選擇器
             WaitForSelectorOptions options = new WaitForSelectorOptions(true, true,
@@ -127,10 +129,19 @@ public class App implements JavaSamplerClient {
 
                     // 如果直接跳到ending沒進入會議室
                     if (ending == "ending") {
+                        toEndTime = System.currentTimeMillis();
+                        combinedResponse.put("status", 500);
+                        combinedResponse.put("msg", "進入失敗畫面跳轉ending");
+                        combinedResponse.put("startTime", formatTime(toStartTime));
+                        combinedResponse.put("clickTime", formatTime(toClickTime));
+                        combinedResponse.put("endTime", formatTime(toEndTime));
+
+                        String json = objectMapper.writeValueAsString(combinedResponse);
+
                         result.setResponseCode("500"); // 設置錯誤的回應碼
                         result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
-                        result.setResponseData("進入失敗畫面跳轉ending", "UTF-8"); // 設置回應內容
-                        break;
+                        result.setResponseData(json, "UTF-8"); // 設置回應內容
+                        return result;
                     }
 
                 }
@@ -140,16 +151,42 @@ public class App implements JavaSamplerClient {
                 } catch (InterruptedException e) {
                     // 中斷異常
                     e.printStackTrace();
+
+                    toEndTime = System.currentTimeMillis();
+                    combinedResponse.put("status", 500);
+                    combinedResponse.put("msg", "出了其他錯誤請看log");
+                    combinedResponse.put("startTime", formatTime(toStartTime));
+                    combinedResponse.put("clickTime", formatTime(toClickTime));
+                    combinedResponse.put("endTime", formatTime(toEndTime));
+
+                    String json = objectMapper.writeValueAsString(combinedResponse);
+
                     result.setResponseCode("500"); // 設置錯誤的回應碼
                     result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
-                    result.setResponseData("出了其他錯誤", "UTF-8"); // 設置回應內容
+                    result.setResponseData(json, "UTF-8"); // 設置回應內容
+                    return result;
+
                 }
             }
 
             if (System.currentTimeMillis() - startTime >= maxWaitTime) {
-                // 超時，元素未找到
-                System.out.println("超時元素未找到,且url也沒有跳轉到ending");
+
+                toEndTime = System.currentTimeMillis();
+                combinedResponse.put("status", 500);
+                combinedResponse.put("msg", "尋找button超時且url也未跳轉至ending");
+                combinedResponse.put("startTime", formatTime(toStartTime));
+                combinedResponse.put("clickTime", formatTime(toClickTime));
+                combinedResponse.put("endTime", formatTime(toEndTime));
+
+                String json = objectMapper.writeValueAsString(combinedResponse);
+
+                result.setResponseCode("500"); // 設置錯誤的回應碼
+                result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
+                result.setResponseData(json, "UTF-8"); // 設置回應內容
+                return result;
             }
+
+            toEndTime = System.currentTimeMillis();
 
             /**
              * ****************************************
@@ -158,23 +195,28 @@ public class App implements JavaSamplerClient {
              */
 
             // 轉換date型態變成string才能塞入json裡面
-            Map<String, Object> combinedResponse = new HashMap<>();
+            combinedResponse.put("status", 200);
+            combinedResponse.put("msg", "測試成功");
             combinedResponse.put("startTime", formatTime(toStartTime));
-            combinedResponse.put("ClickTime", formatTime(toClickTime));
+            combinedResponse.put("clickTime", formatTime(toClickTime));
+            combinedResponse.put("endTime", formatTime(toEndTime));
 
             // 將 Map 物件轉換為 JSON 字串
             String json = objectMapper.writeValueAsString(combinedResponse);
 
             // 輸出 JSON 字串
             System.out.println(json);
+            result.setResponseCode("200");
             result.setSuccessful(true); // 測試成功
             result.setResponseData(json, "UTF-8"); // 設置回應內容
 
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println(e);
             result.setResponseCode("500"); // 設置錯誤的回應碼
             result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
-            result.setResponseData("出了錯誤", "UTF-8"); // 設置回應內容
+            result.setResponseData("出了其他錯誤請看log", "UTF-8"); // 設置回應內容
+            return result;
         }
 
         return result;
@@ -184,7 +226,6 @@ public class App implements JavaSamplerClient {
     public void teardownTest(JavaSamplerContext javaSamplerContext) {
         // browser.close();
     }
-
 
     private static String formatTime(long timeInMillis) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
