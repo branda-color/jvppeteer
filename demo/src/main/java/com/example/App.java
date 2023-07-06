@@ -76,18 +76,26 @@ public class App implements JavaSamplerClient {
         // 設置回應response最後結合成一個json
         ObjectMapper objectMapper = new ObjectMapper();
         // 先把變數製造出來再塞值進去
-        long toStartTime = 0L;  // 打開瀏覽器時間初始化為 0
-        long toClickTime = 0L;  // 點擊按鈕初始化為 0
-        
+        long toStartTime = 0L; // 打開瀏覽器時間初始化為 0
+        long toClickTime = 0L; // 點擊按鈕初始化為 0
 
         try {
             BrowserContext context = browser.createIncognitoBrowserContext();
             Page page = context.newPage();
             page.goTo(javaSamplerContext.getParameter("meetingUrl"));
 
-            // 設置等待畫面渲染
+            //跳轉網址開始計算時間
+            toStartTime = System.currentTimeMillis();
+
+            /**
+             * ***********************************
+             * 設置等待畫面渲染
+             * ***********************************
+             */
             JSHandle isPageLoaded = page.waitForFunction("document.readyState === 'complete'");
-            System.out.println(isPageLoaded);
+            //boolean isPageOk = isPageLoaded.jsonValue().equals(true);
+
+            System.out.println("isPageLoaded"+isPageLoaded);
             System.out.println("畫面渲染完");
             // 新增選擇器
             WaitForSelectorOptions options = new WaitForSelectorOptions(true, true,
@@ -139,7 +147,7 @@ public class App implements JavaSamplerClient {
             }
 
             if (System.currentTimeMillis() - startTime >= maxWaitTime) {
-                // 超时，元素未找到
+                // 超時，元素未找到
                 System.out.println("超時元素未找到,且url也沒有跳轉到ending");
             }
 
@@ -152,6 +160,7 @@ public class App implements JavaSamplerClient {
             // 轉換date型態變成string才能塞入json裡面
             Map<String, Object> combinedResponse = new HashMap<>();
             combinedResponse.put("startTime", formatTime(toStartTime));
+            combinedResponse.put("ClickTime", formatTime(toClickTime));
 
             // 將 Map 物件轉換為 JSON 字串
             String json = objectMapper.writeValueAsString(combinedResponse);
@@ -176,11 +185,6 @@ public class App implements JavaSamplerClient {
         // browser.close();
     }
 
-    private static String getTimeDuration(long startTime, long endTime) {
-        long duration = endTime - startTime;
-        return String.format("{\"start\": \"%s\", \"end\": \"%s\"}",
-                formatTime(startTime), formatTime(endTime));
-    }
 
     private static String formatTime(long timeInMillis) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss.SSS");
