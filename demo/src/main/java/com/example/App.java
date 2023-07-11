@@ -22,6 +22,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.Date;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,7 +38,7 @@ public class App implements JavaSamplerClient {
         params.addArgument("fakeVideoPath", "C:\\test.y4m");
         params.addArgument("fakeAudioPath", "C:\\test.wav");
         params.addArgument("isHeadless", "true");
-        params.addArgument("isLocalMedia", "true");
+        params.addArgument("isLocalMedia", "false");
         params.addArgument("isDefaultMedia", "false");
         params.addArgument("meetingUrl", "https://test.io");
         return params;
@@ -51,9 +53,9 @@ public class App implements JavaSamplerClient {
         ArrayList<String> argList = new ArrayList<>();
         argList.add("--no-sandbox");
         argList.add("--disable-setuid-sandbox");
-        // argList.add("--ignore-certificate-errors");
-        argList.add("--use-fake-ui-for-media-stream");
-        argList.add("--use-fake-device-for-media-stream");
+        argList.add("--ignore-certificate-errors");
+        // argList.add("--use-fake-ui-for-media-stream");
+        // argList.add("--use-fake-device-for-media-stream");
         // 啟動無痕瀏覽器
         argList.add("--incognito");
         if (javaSamplerContext.getParameter("isLocalMedia").equals("true")) {
@@ -85,6 +87,7 @@ public class App implements JavaSamplerClient {
             BrowserContext context = browser.createIncognitoBrowserContext();
             Page page = context.newPage();
             page.goTo(javaSamplerContext.getParameter("meetingUrl"));
+            result.sampleStart(); // 紀錄開始時間
 
             // 跳轉網址開始計算時間
             toStartTime = System.currentTimeMillis();
@@ -96,6 +99,25 @@ public class App implements JavaSamplerClient {
              */
             JSHandle isPageLoaded = page.waitForFunction("document.readyState === 'complete'");
             // boolean isPageOk = isPageLoaded.jsonValue().equals(true);
+
+            // 先確認URL正確性
+            Target targetsStart = page.target();
+            String urlStart = targetsStart.url();
+            String pattern = "#/(\\d+)\\?";
+            Pattern regex = Pattern.compile(pattern);
+            Matcher matcher = regex.matcher(urlStart);
+
+            if (matcher.find()) {
+                String roomNumber = matcher.group(1);
+                System.out.println("match: " + roomNumber);
+                combinedResponse.put("roomNumber", roomNumber);
+            } else {
+
+                result.setResponseCode("500"); // 設置錯誤的回應碼
+                result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
+                result.setResponseData("會議url錯誤", "UTF-8"); // 設置回應內容
+                return result;
+            }
 
             System.out.println("isPageLoaded" + isPageLoaded);
             System.out.println("畫面渲染完");
@@ -140,6 +162,7 @@ public class App implements JavaSamplerClient {
                         result.setResponseCode("500"); // 設置錯誤的回應碼
                         result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
                         result.setResponseData(json, "UTF-8"); // 設置回應內容
+                        result.sampleEnd(); // 紀錄結束時間
                         return result;
                     }
 
@@ -163,6 +186,7 @@ public class App implements JavaSamplerClient {
                     result.setResponseCode("500"); // 設置錯誤的回應碼
                     result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
                     result.setResponseData(json, "UTF-8"); // 設置回應內容
+                    result.sampleEnd(); // 紀錄結束時間
                     return result;
 
                 }
@@ -182,6 +206,7 @@ public class App implements JavaSamplerClient {
                 result.setResponseCode("500"); // 設置錯誤的回應碼
                 result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
                 result.setResponseData(json, "UTF-8"); // 設置回應內容
+                result.sampleEnd(); // 紀錄結束時間
                 return result;
             }
 
@@ -191,8 +216,8 @@ public class App implements JavaSamplerClient {
              * **************************************************
              */
 
-             while (System.currentTimeMillis() - startTime < maxWaitTime) {
-                ElementHandle element = page.waitForSelector("#leave-btn", options);
+            while (System.currentTimeMillis() - startTime < maxWaitTime) {
+                ElementHandle element = page.waitForSelector("#video-undefined", options);
                 if (element != null) {
                     toEndTime = System.currentTimeMillis();
                     break;
@@ -207,7 +232,7 @@ public class App implements JavaSamplerClient {
                     if (ending == "ending") {
                         toEndTime = System.currentTimeMillis();
                         combinedResponse.put("status", 500);
-                        combinedResponse.put("msg", "找尋leave-button失敗且畫面跳轉ending");
+                        combinedResponse.put("msg", "找尋video-undefined失敗且畫面跳轉ending");
                         combinedResponse.put("startTime", formatTime(toStartTime));
                         combinedResponse.put("clickTime", formatTime(toClickTime));
                         combinedResponse.put("endTime", formatTime(toEndTime));
@@ -217,6 +242,7 @@ public class App implements JavaSamplerClient {
                         result.setResponseCode("500"); // 設置錯誤的回應碼
                         result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
                         result.setResponseData(json, "UTF-8"); // 設置回應內容
+                        result.sampleEnd(); // 紀錄結束時間
                         return result;
                     }
 
@@ -230,7 +256,7 @@ public class App implements JavaSamplerClient {
 
                     toEndTime = System.currentTimeMillis();
                     combinedResponse.put("status", 500);
-                    combinedResponse.put("msg", "尋找leave-btn時出了其他錯誤請看log");
+                    combinedResponse.put("msg", "尋找video-undefined時出了其他錯誤請看log");
                     combinedResponse.put("startTime", formatTime(toStartTime));
                     combinedResponse.put("clickTime", formatTime(toClickTime));
                     combinedResponse.put("endTime", formatTime(toEndTime));
@@ -240,6 +266,7 @@ public class App implements JavaSamplerClient {
                     result.setResponseCode("500"); // 設置錯誤的回應碼
                     result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
                     result.setResponseData(json, "UTF-8"); // 設置回應內容
+                    result.sampleEnd(); // 紀錄結束時間
                     return result;
 
                 }
@@ -249,7 +276,7 @@ public class App implements JavaSamplerClient {
 
                 toEndTime = System.currentTimeMillis();
                 combinedResponse.put("status", 500);
-                combinedResponse.put("msg", "尋找leave-btn超時且url也未跳轉至ending");
+                combinedResponse.put("msg", "尋找video-undefined超時且url也未跳轉至ending");
                 combinedResponse.put("startTime", formatTime(toStartTime));
                 combinedResponse.put("clickTime", formatTime(toClickTime));
                 combinedResponse.put("endTime", formatTime(toEndTime));
@@ -259,6 +286,7 @@ public class App implements JavaSamplerClient {
                 result.setResponseCode("500"); // 設置錯誤的回應碼
                 result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
                 result.setResponseData(json, "UTF-8"); // 設置回應內容
+                result.sampleEnd(); // 紀錄結束時間
                 return result;
             }
 
@@ -282,7 +310,9 @@ public class App implements JavaSamplerClient {
             System.out.println(json);
             result.setResponseCode("200");
             result.setSuccessful(true); // 測試成功
+            result.setResponseMessage("OK"); // 設置錯誤的回應訊息
             result.setResponseData(json, "UTF-8"); // 設置回應內容
+            result.sampleEnd(); // 紀錄結束時間
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -290,15 +320,20 @@ public class App implements JavaSamplerClient {
             result.setResponseCode("500"); // 設置錯誤的回應碼
             result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
             result.setResponseData("出了其他錯誤請看log", "UTF-8"); // 設置回應內容
+            result.sampleEnd(); // 紀錄結束時間
             return result;
         }
+
+        // 計算延遲時間
+        long latency = toEndTime - result.getStartTime();
+        result.setLatency(latency); // 設定延遲值
 
         return result;
     }
 
     @Override
     public void teardownTest(JavaSamplerContext javaSamplerContext) {
-        // browser.close();
+        //browser.close();
     }
 
     private static String formatTime(long timeInMillis) {
