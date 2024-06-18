@@ -60,6 +60,7 @@ public class App implements JavaSamplerClient {
         // 啟用瀏覽器假視訊參數
         argList.add("--use-fake-ui-for-media-stream");
         argList.add("--use-fake-device-for-media-stream");
+        argList.add("--autoplay-policy=no-user-gesture-required");
         // 啟動無痕瀏覽器
         argList.add("--incognito");
         if (javaSamplerContext.getParameter("isLocalMedia").equals("true")) {
@@ -85,6 +86,7 @@ public class App implements JavaSamplerClient {
         // 先把變數製造出來再塞值進去
         long toStartTime = 0L; // 打開瀏覽器時間初始化為 0
         long toEndTime = 0L; // 到視訊畫面初始化為 0
+        long intoTime = 0L;
         result.sampleStart(); // 紀錄開始時間
 
         try {
@@ -94,13 +96,11 @@ public class App implements JavaSamplerClient {
             // context.overridePermissions(javaSamplerContext.getParameter("meetingUrl"),permissions);
             Page page = context.newPage();
             page.goTo(javaSamplerContext.getParameter("meetingUrl"));
-            
 
             // 跳轉網址開始計算時間
             toStartTime = System.currentTimeMillis();
             result.setConnectTime(result.getConnectTime());
 
-                       
             /**
              * ***********************************
              * 設置等待畫面渲染
@@ -177,6 +177,7 @@ public class App implements JavaSamplerClient {
                             combinedResponse.put("msg", "找尋video-undefined失敗且畫面跳轉ending");
                             combinedResponse.put("startTime", formatTime(toStartTime));
                             combinedResponse.put("endTime", formatTime(toEndTime));
+                            combinedResponse.put("intoTime", formatTime(intoTime));
 
                             String json = objectMapper.writeValueAsString(combinedResponse);
 
@@ -196,13 +197,13 @@ public class App implements JavaSamplerClient {
                 }
 
             } catch (InterruptedException e) {
-                
-            
+
                 toEndTime = System.currentTimeMillis();
                 combinedResponse.put("status", 500);
                 combinedResponse.put("msg", "尋找video-undefined時出了錯誤請看log");
                 combinedResponse.put("startTime", formatTime(toStartTime));
                 combinedResponse.put("endTime", formatTime(toEndTime));
+                combinedResponse.put("intoTime", formatTime(intoTime));
 
                 String json = objectMapper.writeValueAsString(combinedResponse);
 
@@ -224,6 +225,7 @@ public class App implements JavaSamplerClient {
                 combinedResponse.put("msg", "尋找video-undefined超時且url也未跳轉至ending");
                 combinedResponse.put("startTime", formatTime(toStartTime));
                 combinedResponse.put("endTime", formatTime(toEndTime));
+                combinedResponse.put("intoTime", formatTime(intoTime));
 
                 String json = objectMapper.writeValueAsString(combinedResponse);
 
@@ -238,7 +240,7 @@ public class App implements JavaSamplerClient {
 
             /**
              * ****************************************
-             * 組合resonse變成json
+             * 組合response變成json
              * ****************************************
              */
 
@@ -247,6 +249,8 @@ public class App implements JavaSamplerClient {
             combinedResponse.put("msg", "測試成功");
             combinedResponse.put("startTime", formatTime(toStartTime));
             combinedResponse.put("endTime", formatTime(toEndTime));
+            intoTime = toEndTime - toStartTime;
+            combinedResponse.put("intoTime", intoTime);
 
             // 將 Map 物件轉換為 JSON 字串
             String json = objectMapper.writeValueAsString(combinedResponse);
@@ -267,14 +271,14 @@ public class App implements JavaSamplerClient {
             result.setResponseData("出了其他錯誤請看log", "UTF-8"); // 設置回應內容
             result.setConnectTime(result.getConnectTime());
             result.sampleEnd(); // 紀錄結束時間
-            //e.printStackTrace();
+            // e.printStackTrace();
             System.out.println(e);
             return result;
 
         }
 
         // 計算延遲時間
-        long latency = toEndTime - result.getStartTime();
+        long latency = toEndTime - toStartTime;
         result.setLatency(latency); // 設定延遲值
 
         // 設定連接時間
