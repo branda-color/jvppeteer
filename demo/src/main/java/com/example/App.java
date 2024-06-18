@@ -87,6 +87,7 @@ public class App implements JavaSamplerClient {
         long toStartTime = 0L; // 打開瀏覽器時間初始化為 0
         long toEndTime = 0L; // 到視訊畫面初始化為 0
         long intoTime = 0L;
+        long buttomClick =0L;
         result.sampleStart(); // 紀錄開始時間
 
         try {
@@ -158,8 +159,45 @@ public class App implements JavaSamplerClient {
 
             try {
 
+                 // 查找並點擊加入按鈕
+                ElementHandle joinButton = null;
                 while (System.currentTimeMillis() - startTime < maxWaitTime) {
-                    ElementHandle element = page.waitForSelector("#video-undefined", options);
+                    joinButton = page.waitForSelector("#join-button", options);
+                    if (joinButton != null) {
+                        System.out.println("找到了 join-button 按鈕");
+                        Thread.sleep(interval);
+                        joinButton.click();
+                        System.out.println("已點擊 join-button 按鈕");
+                        buttomClick = System.currentTimeMillis();
+                        break;
+                    }
+                    Thread.sleep(interval);
+                }
+
+                if (joinButton == null) {
+
+                    toEndTime = System.currentTimeMillis();
+                    combinedResponse.put("status", 500);
+                    combinedResponse.put("msg", "尋找clickbuttom超時失敗");
+                    combinedResponse.put("startTime", formatTime(toStartTime));
+                    combinedResponse.put("endTime", formatTime(toEndTime));
+                    combinedResponse.put("intoTime", formatTime(intoTime));
+
+                    String json = objectMapper.writeValueAsString(combinedResponse);
+
+                    result.setResponseCode("500"); // 設置錯誤的回應碼
+                    result.setResponseMessage("會議失敗"); // 設置錯誤的回應訊息
+                    result.setResponseData(json, "UTF-8"); // 設置回應內容
+                    result.setConnectTime(result.getConnectTime());
+                    result.sampleEnd(); // 紀錄結束時間
+
+                    return result;
+                    
+                }
+
+                while (System.currentTimeMillis() - buttomClick < maxWaitTime) {
+                   
+                    ElementHandle element = page.waitForSelector("#camera-btn", options);
                     if (element != null) {
                         toEndTime = System.currentTimeMillis();
                         break;
@@ -174,7 +212,7 @@ public class App implements JavaSamplerClient {
                         if (ending == "ending") {
                             toEndTime = System.currentTimeMillis();
                             combinedResponse.put("status", 500);
-                            combinedResponse.put("msg", "找尋video-undefined失敗且畫面跳轉ending");
+                            combinedResponse.put("msg", "找尋camera-btn失敗且畫面跳轉ending");
                             combinedResponse.put("startTime", formatTime(toStartTime));
                             combinedResponse.put("endTime", formatTime(toEndTime));
                             combinedResponse.put("intoTime", formatTime(intoTime));
@@ -200,7 +238,7 @@ public class App implements JavaSamplerClient {
 
                 toEndTime = System.currentTimeMillis();
                 combinedResponse.put("status", 500);
-                combinedResponse.put("msg", "尋找video-undefined時出了錯誤請看log");
+                combinedResponse.put("msg", "尋找camera-btn時出了錯誤請看log");
                 combinedResponse.put("startTime", formatTime(toStartTime));
                 combinedResponse.put("endTime", formatTime(toEndTime));
                 combinedResponse.put("intoTime", formatTime(intoTime));
@@ -218,11 +256,10 @@ public class App implements JavaSamplerClient {
 
             }
 
-            if (System.currentTimeMillis() - startTime >= maxWaitTime) {
-
+            if (System.currentTimeMillis() - buttomClick >= maxWaitTime) {
                 toEndTime = System.currentTimeMillis();
                 combinedResponse.put("status", 500);
-                combinedResponse.put("msg", "尋找video-undefined超時且url也未跳轉至ending");
+                combinedResponse.put("msg", "尋找camera-btn超時且url也未跳轉至ending");
                 combinedResponse.put("startTime", formatTime(toStartTime));
                 combinedResponse.put("endTime", formatTime(toEndTime));
                 combinedResponse.put("intoTime", formatTime(intoTime));
@@ -249,8 +286,9 @@ public class App implements JavaSamplerClient {
             combinedResponse.put("msg", "測試成功");
             combinedResponse.put("startTime", formatTime(toStartTime));
             combinedResponse.put("endTime", formatTime(toEndTime));
-            intoTime = toEndTime - toStartTime;
-            combinedResponse.put("intoTime", intoTime);
+            intoTime = toEndTime - buttomClick;
+            combinedResponse.put("clickTime",buttomClick);
+            combinedResponse.put("intoTime",intoTime);
 
             // 將 Map 物件轉換為 JSON 字串
             String json = objectMapper.writeValueAsString(combinedResponse);
